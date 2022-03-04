@@ -4,8 +4,9 @@
 
 #define STORAGE_SIZE 128
 #define NAME_SIZE 64
+#define MIN_NAME_SIZE 3
 #define MAX_POSITIONS 16
-#define FILENAME "storage.txt"
+#define FILENAME "storage.bin"
 
 using namespace std;
 
@@ -28,7 +29,7 @@ typedef struct Receipt {
 };
 
 
-bool readStorage(Product[], int&);
+bool readLocalStorage(Product[], int&);
 void updateLocalStorage(Product[], int);
 
 void printStorage(Product[], int);
@@ -46,7 +47,7 @@ int main() {
 	int choice = -1;
 
 	printf("Чтение сохранённых товаров...\n");
-	if (readStorage(storage, productsCount)) {
+	if (readLocalStorage(storage, productsCount)) {
 		printf("Успешно прочитано %d товаров\n", productsCount);
 	}
 	else {
@@ -82,56 +83,36 @@ int main() {
 }
 
 // -- Работа с файлом
-bool readStorage(Product storage[], int& productsCount) {
-	ifstream file(FILENAME);
-	file >> productsCount;
-	if (productsCount == 0) {
+bool readLocalStorage(Product storage[], int& productsCount) {
+	ifstream file(FILENAME, ios::binary);
+	if (!file.is_open()) {
+		printf("Не удалось открыть файл %s.\n", FILENAME);
 		file.close();
 		return false;
 	}
-
-	char lineBuf[NAME_SIZE];
-	int realCount = 0;
-
-	char tempName[NAME_SIZE];
-	float tempPrice = 0.0;
-	int tempQuantity = 0;
-
-	file.getline(lineBuf, NAME_SIZE);
-	for (int i = 0; i < productsCount; i++) {
-		file.getline(lineBuf, NAME_SIZE);
-		file.getline(lineBuf, NAME_SIZE);
-		strcpy_s(tempName, lineBuf);
-		if (strlen(tempName) < 3) {
+	productsCount = 0;
+	while (!file.eof()) {
+		file.read((char*)&storage[productsCount], sizeof Product);
+		if (strlen(storage[productsCount].name) < MIN_NAME_SIZE) {
 			continue;
 		}
-		file >> tempPrice;
-		if (tempPrice <= 0.0) {
+		if (storage[productsCount].price <= 0.0) {
 			continue;
 		}
-		file >> tempQuantity;
-		if (tempQuantity <= 0) {
+		if (storage[productsCount].quantity <= 0) {
 			continue;
 		}
-		strcpy_s(storage[realCount].name, tempName);
-		storage[realCount].price = tempPrice;
-		storage[realCount].quantity = tempQuantity;
-		realCount++;
-		file.getline(lineBuf, NAME_SIZE);
+		productsCount++;
 	}
-	productsCount = realCount;
-
 	file.close();
+	if (!productsCount) return false;
 	return true;
 }
 
 void updateLocalStorage(Product storage[], int productsCount) {
-	ofstream file(FILENAME);
-	file << productsCount << endl << endl;
+	ofstream file(FILENAME, ios::binary);
 	for (int i = 0; i < productsCount; i++) {
-		file << storage[i].name << endl;
-		file << storage[i].price << endl;
-		file << storage[i].quantity << endl << endl;
+		file.write((char*) &storage[i], sizeof storage[i]);
 	}
 	file.close();
 }
@@ -181,9 +162,9 @@ void addProduct(Product storage[], int& productsCount) {
 	char inputName[NAME_SIZE]{};
 	int productIndex;
 	do {
-		printf("\nВведите название товара(мин. длина - 3): ");
+		printf("\nВведите название товара(мин. длина - %d): ", MIN_NAME_SIZE);
 		cin.getline(inputName, NAME_SIZE);
-	} while (strlen(inputName) < 3);
+	} while (strlen(inputName) < MIN_NAME_SIZE);
 	productIndex = searchProduct(storage, productsCount, inputName);
 	if (productIndex == -1) {
 		if (productsCount == STORAGE_SIZE) {
@@ -227,7 +208,7 @@ void sellProduct(Product storage[], int productsCount) {
 	while (true) {
 		
 		do {
-			printf("\nВведите название товара(мин. длина - 3, Введите 0, чтобы завершить покупки): ");
+			printf("\nВведите название товара(Введите 0, чтобы завершить покупки): ");
 			cin.getline(name, NAME_SIZE);
 		} while ((name[0] != '0' || strlen(name) != 1) && searchProduct(storage, productsCount, name) == -1);
 
