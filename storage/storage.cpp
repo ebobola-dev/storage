@@ -32,6 +32,7 @@ typedef struct Receipt {
 bool readLocalStorage(Product[], int&);
 void updateLocalStorage(Product[], int);
 
+void printLine();
 void printStorage(Product[], int);
 int searchProduct(Product[], int, char[NAME_SIZE]);
 void addProduct(Product[], int&);
@@ -118,13 +119,21 @@ void updateLocalStorage(Product storage[], int productsCount) {
 }
 // --
 
+void printLine() {
+	printf("|------------------------------------------------------------------|----------------------|--------------|\n");
+}
+
 void printReceipt(Receipt receipt) {
-	printf("\n  \tНазвание\tЦена\tКоличество\n");
+	printf("\nЧек:\n");
+	printf("| %*s | %-21s| %-12s |\n", -NAME_SIZE, "Наименование продукта", "Цена", "Количество");
+	printLine();
 	for (int i = 0; i < receipt.positionQuantity; i++) {
 		ReceiptPosition* receiptPos = &receipt.positions[i];
-		printf("%d)\t%s\t%.2f\t%d\n", i + 1, receiptPos->productName, receiptPos->price, receiptPos->quantity);
+		printf("| %-64s | %15.2f руб. | %12d |\n", receiptPos->productName, receiptPos->price, receiptPos->quantity);
+		printLine();
 	}
-	printf("Итого %d позиции(й) на %.2f руб.\n", receipt.positionQuantity, receipt.totalPrice);
+	printf("| %-64s | %15.2f руб. | %12s |\n", "ИТОГО", receipt.totalPrice, "");
+	printLine();
 }
 
 void printStorage(Product storage[], int productsCount) {
@@ -132,11 +141,12 @@ void printStorage(Product storage[], int productsCount) {
 		printf("\nСклад пуст\n");
 		return;
 	}
-	printf("\nСписок товаров(%d):\n\n", productsCount);
+	printf("\nСписок товаров(%d):\n", productsCount);
+	printf("| %*s | %-21s| %-12s |\n", -NAME_SIZE, "Название", "Цена", "Количество");
+	printLine();
 	for (int i = 0; i < productsCount; i++) {
-		printf("Название: %s\n", storage[i].name);
-		printf("Цена: %.2f руб.\n", storage[i].price);
-		printf("Осталось на складе: %d\n\n", storage[i].quantity);
+		printf("| %-64s | %15.2f руб. | %12d |\n", storage[i].name, storage[i].price, storage[i].quantity);\
+		printLine();
 	}
 }
 
