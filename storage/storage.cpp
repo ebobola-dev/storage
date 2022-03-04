@@ -4,20 +4,27 @@
 
 #define STORAGE_SIZE 128
 #define NAME_SIZE 64
+#define MAX_POSITIONS 16
 #define FILENAME "storage.txt"
 
 using namespace std;
 
 typedef struct Product {
 	char name[NAME_SIZE]{};
-	float price;
-	int quantity;
+	float price = 0.0f;
+	int quantity = 0;
+};
+
+typedef struct ReceiptPosition {
+	char productName[NAME_SIZE]{};
+	int quantity = 0;
+	float price = 0.0f;
 };
 
 typedef struct Receipt {
-	char productName[NAME_SIZE]{};
-	int quantity;
-	float totalPrice;
+	ReceiptPosition positions[MAX_POSITIONS];
+	int positionQuantity = 0;
+	float totalPrice = 0.0f;
 };
 
 
@@ -79,6 +86,7 @@ bool readStorage(Product storage[], int& productsCount) {
 	ifstream file(FILENAME);
 	file >> productsCount;
 	if (productsCount == 0) {
+		file.close();
 		return false;
 	}
 
@@ -130,9 +138,12 @@ void updateLocalStorage(Product storage[], int productsCount) {
 // --
 
 void printReceipt(Receipt receipt) {
-	printf("\nЧек на сумму %.2f руб.:\n", receipt.totalPrice);
-	printf("Товар: %s\n", receipt.productName);
-	printf("Количество купленного товара: %d\n\n", receipt.quantity);
+	printf("\n  \tНазвание\tЦена\tКоличество\n");
+	for (int i = 0; i < receipt.positionQuantity; i++) {
+		ReceiptPosition* receiptPos = &receipt.positions[i];
+		printf("%d)\t%s\t%.2f\t%d\n", i + 1, receiptPos->productName, receiptPos->price, receiptPos->quantity);
+	}
+	printf("Итого %d позиции(й) на %.2f руб.\n", receipt.positionQuantity, receipt.totalPrice);
 }
 
 void printStorage(Product storage[], int productsCount) {
@@ -146,6 +157,15 @@ void printStorage(Product storage[], int productsCount) {
 		printf("Цена: %.2f руб.\n", storage[i].price);
 		printf("Осталось на складе: %d\n\n", storage[i].quantity);
 	}
+}
+
+int searchPosition(ReceiptPosition positions[], int positionsCount, char name[NAME_SIZE]) {
+	for (int i = 0; i < positionsCount; i++) {
+		if (!strcmp(positions[i].productName, name)) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 int searchProduct(Product storage[], int productsCount, char name[NAME_SIZE]) {
@@ -202,37 +222,53 @@ void addProduct(Product storage[], int& productsCount) {
 
 void sellProduct(Product storage[], int productsCount) {
 	char name[NAME_SIZE];
-	do {
-		printf("\nВведите название товара(мин. длина - 3): ");
-		cin.getline(name, NAME_SIZE);
-	} while (strlen(name) < 3);
-	int productIndex = searchProduct(storage, productsCount, name);
-	if (productIndex == -1) {
-		printf("Ошибка продажи товара - товар с именем %s не найнен.\n", name);
-		return;
-	}
-
-	int quantity = 0;
-	do {
-		printf("Введите количество товаров(> 0): ");
-		cin >> quantity;
-		cin.clear();
-		cin.get();
-	} while (quantity <= 0);
-
-	if (storage[productIndex].quantity < quantity) {
-		printf("Ошибка продажи товара - на скалде нет такого количества товара.\n");
-		printf("Товар \"%s\" - кол-во: %d шт.\n", storage[productIndex].name, storage[productIndex].quantity);
-		return;
-	}
-
 	Receipt newReceipt;
-	strcpy_s(newReceipt.productName, storage[productIndex].name);
-	newReceipt.totalPrice = (float)quantity * storage[productIndex].price;
-	newReceipt.quantity = quantity;
-	printReceipt(newReceipt);
 
-	storage[productIndex].quantity -= quantity;
-	printf("Товар \"%s\" успешно продан в количестве %d шт.,\nна складе осталось %d шт. этого товара.\n", storage[productIndex].name, quantity, storage[productIndex].quantity);
-	updateLocalStorage(storage, productsCount);
+	while (true) {
+		
+		do {
+			printf("\nВведите название товара(мин. длина - 3, Введите 0, чтобы завершить покупки): ");
+			cin.getline(name, NAME_SIZE);
+		} while ((name[0] != '0' || strlen(name) != 1) && searchProduct(storage, productsCount, name) == -1);
+
+		if (strlen(name) == 1 && name[0] == '0') break;
+
+		int productIndex = searchProduct(storage, productsCount, name);
+
+		int quantity = 0;
+		do {
+			printf("Введите количество товаров(> 0, <= %d): ", storage[productIndex].quantity);
+			cin >> quantity;
+			cin.clear();
+			cin.get();
+		} while (quantity <= 0 || quantity > storage[productIndex].quantity);
+
+		storage[productIndex].quantity -= quantity;
+
+		int positionIndex = searchPosition(newReceipt.positions, newReceipt.positionQuantity, name);
+		if (positionIndex != -1) {
+			newReceipt.positions[positionIndex].quantity += quantity;
+			newReceipt.totalPrice += quantity * storage[productIndex].price;
+		}
+		else {
+			// 
+			strcpy_s(newReceipt.positions[newReceipt.positionQuantity].productName, storage[productIndex].name);
+			newReceipt.positions[newReceipt.positionQuantity].price = storage[productIndex].price;
+			newReceipt.positions[newReceipt.positionQuantity].quantity = quantity;
+			//
+
+			newReceipt.totalPrice += quantity * storage[productIndex].price;
+			newReceipt.positionQuantity++;
+		}
+
+	}
+
+	if (!newReceipt.positionQuantity) {
+		printf("Вы ничего не купили\n");
+	}
+	else {
+		printf("Покупка завершена\n");
+		printReceipt(newReceipt);
+		updateLocalStorage(storage, productsCount);
+	}
 }
